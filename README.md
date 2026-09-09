@@ -1,13 +1,21 @@
 # DeepMine — Telegram Mini App
 
-Idle mining game with server-side PostgreSQL persistence and Telegram WebApp authentication.
+Production-ready MVP for Render: React/Vite frontend, Express API and PostgreSQL persistence.
 
 ## Local
-1. `npm install`
-2. Create `.env` with `DATABASE_URL` and optionally `BOT_TOKEN`.
-3. `npm run dev`
+- `npm install`
+- `npm run dev`
+- `npm run build`
+- `npm start`
 
 ## Render
-Use the included `render.yaml` Blueprint. Set `BOT_TOKEN` to the token of the Telegram bot that owns the Mini App. `DATABASE_URL` is created automatically by Render PostgreSQL.
+- Runtime: Node
+- Build: `npm install && npm run build`
+- Start: `npm start`
+- Add `BOT_TOKEN` as a secret environment variable.
+- PostgreSQL is declared in `render.yaml` and exposed as `DATABASE_URL`.
 
-The server serves the Vite build and exposes `/api/health`, `/api/bootstrap`, `/api/state`.
+## Telegram
+After deployment, set the deployed HTTPS URL as the bot's Mini App URL / menu button using BotFather. The backend validates Telegram WebApp `initData` using `BOT_TOKEN`.
+
+Never commit `BOT_TOKEN` to GitHub.
