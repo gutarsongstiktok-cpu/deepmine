@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState} from 'react'
+import React,{useEffect,useRef,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import './style.css'
 
@@ -19,12 +19,13 @@ const upgrades=[
 const fresh=()=>({coins:120,ore:0,rate:1,depth:0,level:0,up:{pick:0,cart:0,drill:0,crew:0},claimed:false,missions:{mine:0,sell:0,upgrade:0},achievements:{firstSell:false,depth:false,rich:false},stats:{totalOre:0,totalCoins:120,totalUpgrades:0},lastServerAt:Date.now()})
 function App(){
  const [s,setS]=useState(fresh),[tab,setTab]=useState('mine'),[toast,setToast]=useState(''),[loading,setLoading]=useState(true),[user,setUser]=useState(null)
+ const stateRef=useRef(s); useEffect(()=>{stateRef.current=s},[s])
  const layer=layers[Math.min(s.level,layers.length-1)]
  const show=x=>{setToast(x);setTimeout(()=>setToast(''),1800)}
  const save=async(state)=>{try{await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':tg?.initData||''},body:JSON.stringify({state})})}catch{}}
  useEffect(()=>{tg?.ready();tg?.expand();(async()=>{try{const r=await fetch('/api/bootstrap',{method:'POST',headers:{'X-Telegram-Init-Data':tg?.initData||''}});const j=await r.json();if(j.ok){setUser(j.user);setS(j.state)}}finally{setLoading(false)}})()},[])
- useEffect(()=>{if(loading)return;const t=setInterval(()=>setS(x=>({...x,ore:x.ore+x.rate/2,stats:{...x.stats,totalOre:x.stats.totalOre+x.rate/2}})),500);return()=>clearInterval(t)},[loading])
- useEffect(()=>{if(loading)return;const t=setInterval(()=>save({...s,lastServerAt:Date.now()}),15000);return()=>clearInterval(t)},[loading,s])
+ useEffect(()=>{if(loading)return;const t=setInterval(()=>setS(x=>{const mined=x.rate/2;const currentLayer=layers[Math.min(x.level,layers.length-1)];return {...x,ore:x.ore+mined,depth:Math.min(currentLayer.depth,x.depth+mined),missions:{...x.missions,mine:x.missions.mine+mined},stats:{...x.stats,totalOre:x.stats.totalOre+mined}}}),500);return()=>clearInterval(t)},[loading,layer.depth])
+ useEffect(()=>{if(loading)return;const t=setInterval(()=>save({...stateRef.current,lastServerAt:Date.now()}),15000);return()=>clearInterval(t)},[loading])
  const depthPct=Math.min(100,s.depth/layer.depth*100)
  const upgrade=id=>{const u=upgrades.find(x=>x.id===id),lvl=s.up[id]||0,cost=Math.floor(u.base*Math.pow(1.65,lvl));if(s.coins<cost)return show('Не хватает монет');const ns={...s,coins:s.coins-cost,rate:s.rate+u.bonus,up:{...s.up,[id]:lvl+1},missions:{...s.missions,upgrade:s.missions.upgrade+1},stats:{...s.stats,totalUpgrades:s.stats.totalUpgrades+1}};setS(ns);show('Улучшение куплено')}
  const sell=()=>{if(s.ore<1)return show('Пока нечего продавать');const earned=s.ore*layer.value;const ns={...s,coins:s.coins+earned,ore:0,missions:{...s.missions,sell:s.missions.sell+s.ore},stats:{...s.stats,totalCoins:s.stats.totalCoins+earned},achievements:{...s.achievements,firstSell:true}};setS(ns);show(`+${fmt(earned)} 🪙`);save(ns)}
