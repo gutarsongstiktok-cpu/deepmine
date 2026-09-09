@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: deepmine
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: deepmine-db
+          property: connectionString
+      - key: BOT_TOKEN
+        sync: false
+databases:
+  - name: deepmine-db
+    plan: free
