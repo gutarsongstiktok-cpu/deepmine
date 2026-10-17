@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemStatus {
+  AVAILABLE
+  RESERVED
+  IN_TRADE
+  WITHDRAWN
+  CONSUMED
+  LOCKED
+}
+
+enum OperationStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  RECONCILIATION_REQUIRED
+}
+
+model User {
+  id          String          @id @default(cuid())
+  telegramId  String          @unique
+  username    String?
+  firstName   String?
+  demoBalance Decimal         @default(1000) @db.Decimal(18, 2)
+  createdAt   DateTime        @default(now())
+  items       SkinInstance[]
+  openings    CaseOpening[]
+  upgrades    Upgrade[]
+}
+
+model SkinCatalog {
+  id              String         @id @default(cuid())
+  marketHashName  String         @unique
+  weapon          String
+  exterior        String?
+  rarity          String
+  imageUrl        String?
+  referencePrice  Decimal        @db.Decimal(18, 2)
+  createdAt       DateTime       @default(now())
+  instances       SkinInstance[]
+  caseItems       CaseItem[]
+}
+
+model SkinInstance {
+  id            String      @id @default(cuid())
+  catalogId     String
+  catalog       SkinCatalog @relation(fields: [catalogId], references: [id])
+  ownerId       String?
+  owner         User?       @relation(fields: [ownerId], references: [id])
+  steamAssetId  String?     @unique
+  floatValue    Decimal?    @db.Decimal(10, 9)
+  status        ItemStatus  @default(LOCKED)
+  source        String      @default("DEMO")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Case {
+  id            String      @id @default(cuid())
+  name          String
+  description   String
+  price         Decimal     @db.Decimal(18, 2)
+  imageUrl      String?
+  enabled       Boolean     @default(true)
+  configVersion Int         @default(1)
+  items         CaseItem[]
+  openings      CaseOpening[]
+}
+
+model CaseItem {
+  id           String      @id @default(cuid())
+  caseId       String
+  case         Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  catalogId    String
+  catalog      SkinCatalog @relation(fields: [catalogId], references: [id])
+  weight       Int
+  @@unique([caseId, catalogId])
+}
+
+model CaseOpening {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  caseId            String
+  case              Case            @relation(fields: [caseId], references: [id])
+  resultInstanceId  String?
+  resultName        String?
+  pricePaid         Decimal         @db.Decimal(18, 2)
+  configVersion     Int
+  status            OperationStatus @default(PENDING)
+  idempotencyKey    String          @unique
+  createdAt         DateTime        @default(now())
+}
+
+model Upgrade {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id])
+  inputInstanceId  String
+  targetCatalogId  String
+  inputValue       Decimal         @db.Decimal(18, 2)
+  targetValue      Decimal         @db.Decimal(18, 2)
+  chanceBps        Int
+  rollBps          Int
+  result           String
+  status           OperationStatus @default(PENDING)
+  rulesVersion     Int             @default(1)
+  idempotencyKey   String          @unique
+  createdAt        DateTime        @default(now())
+}
+
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  operationId String
+  entryType   String
+  amount      Decimal  @db.Decimal(18, 2)
+  currency    String   @default("DEMO")
+  createdAt   DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  provider    String
+  network     String?
+  txHash      String?  @unique
+  amountNano  String?
+  status      String   @default("DISABLED")
+  createdAt   DateTime @default(now())
+}
+
+model SteamTrade {
+  id             String   @id @default(cuid())
+  userId         String
+  direction      String
+  externalTradeId String? @unique
+  status         String   @default("DISABLED")
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  @@index([entityType, entityId])
+}
